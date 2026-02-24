@@ -12,11 +12,8 @@
         .card { background: var(--yt-sidebar); padding: 24px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
         .odo-container { font-size: 64px; font-weight: bold; color: white; margin: 10px 0; }
         .money { font-size: 24px; color: #00ff00; margin-bottom: 10px; }
-        
-        /* Modal Styles */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
         .modal-content { background: var(--yt-sidebar); padding: 30px; border-radius: 12px; width: 400px; border: 1px solid #444; }
-        
         input { background: #000; border: 1px solid #444; color: white; padding: 12px; border-radius: 4px; width: 100%; margin-bottom: 15px; box-sizing: border-box; }
         .btn { padding: 12px 24px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
         .btn-v { background: var(--yt-red); color: white; width: 100%; }
@@ -68,9 +65,14 @@
     </div>
 
     <script>
+        // ログインチェック
+        if (!localStorage.getItem('ryutube_user_session')) {
+            location.href = 'login.html';
+        }
+
         const currentUser = localStorage.getItem('ryutube_user_session') || 'Guest';
         const SAVE_KEY = `ryutube_studio_data_${currentUser}`;
-        let subs = 0, money = 0, rate = 5, cost = 500, canUpload = true; // 初速を少し上げました
+        let subs = 0, money = 0, rate = 5, cost = 500, canUpload = true;
 
         function load() {
             const data = JSON.parse(localStorage.getItem(SAVE_KEY)) || {subs:0, money:0, rate:5, cost:500};
@@ -86,7 +88,6 @@
         }
 
         function saveData() { localStorage.setItem(SAVE_KEY, JSON.stringify({subs, money, rate, cost})); }
-        
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
@@ -103,21 +104,16 @@
             if (!canUpload) return;
             const title = document.getElementById('v-title').value || "New Video";
             const thumb = document.getElementById('v-thumb').value || `https://picsum.photos/seed/${Date.now()}/300/170`;
-            
             const vKey = `videos_${currentUser}`;
             const videos = JSON.parse(localStorage.getItem(vKey)) || [];
             videos.push({ title, thumb });
             localStorage.setItem(vKey, JSON.stringify(videos));
-
-            // 動画投稿時のボーナス（登録者数100増、収益1000増にバランス変更）
             subs += 100; money += 1000;
             saveData();
             closeModal('upload-modal');
-            
             canUpload = false;
             const btn = document.getElementById('upload-btn');
-            let cd = 3;
-            btn.disabled = true;
+            let cd = 3; btn.disabled = true;
             const timer = setInterval(() => {
                 btn.innerText = `Wait (${cd}s)`;
                 if (cd <= 0) { clearInterval(timer); btn.disabled = false; btn.innerText = "Upload Now"; canUpload = true; }
@@ -125,19 +121,19 @@
             }, 1000);
         }
 
-        function upgrade() {
-            if (money >= cost) { money -= cost; rate += 10; cost *= 2; saveData(); }
-        }
+        function upgrade() { if (money >= cost) { money -= cost; rate += 10; cost *= 2; saveData(); } }
 
-        function logout() { localStorage.removeItem('ryutube_user_session'); location.href = 'index.html'; }
+        function logout() { 
+            localStorage.removeItem('ryutube_user_session'); 
+            location.href = 'login.html'; 
+        }
 
         const odo = new Odometer({ el: document.getElementById('my-odo'), value: 0, format: '(,ddd)' });
         load();
         
-        // 5秒ごとに更新されるように変更
         setInterval(() => {
             subs += rate; 
-            money += (rate * 2.5); // 収益バランスを調整
+            money += (rate * 2.5);
             odo.update(Math.floor(subs));
             document.getElementById('money-display').innerText = `Balance: $${Math.floor(money).toLocaleString()}`;
             document.getElementById('upgrade-btn').innerText = `Invest in Equipment ($${cost.toLocaleString()})`;

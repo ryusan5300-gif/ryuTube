@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ryuTube - Home</title>
+    <style>
+        :root { --bg: #0f0f0f; --sidebar: #0f0f0f; --text: #ffffff; --card-hover: #2a2a2a; }
+        body { background: var(--bg); color: var(--text); font-family: Roboto, Arial, sans-serif; margin: 0; display: flex; }
+        .sidebar { width: 240px; padding: 12px; height: 100vh; position: fixed; border-right: 1px solid #333; }
+        .nav-item { padding: 10px 15px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 20px; text-decoration: none; color: white; margin-bottom: 5px; }
+        .nav-item:hover { background: var(--card-hover); }
+        .nav-item.active { background: var(--card-hover); font-weight: bold; }
+        .content { margin-left: 240px; padding: 24px; width: calc(100% - 240px); }
+        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .video-card { cursor: pointer; transition: transform 0.2s; }
+        .video-card:hover { transform: scale(1.02); }
+        .thumbnail img { width: 100%; border-radius: 12px; aspect-ratio: 16/9; object-fit: cover; }
+        .video-info { display: flex; gap: 12px; margin-top: 12px; }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; background: #333; }
+        .details h3 { margin: 0; font-size: 16px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .details p { margin: 4px 0 0; font-size: 14px; color: #aaa; }
+        
+        /* Language Picker Style */
+        .header-tags { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+        select { background: #1e1e1e; color: white; border: 1px solid #333; padding: 5px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div style="font-size: 24px; font-weight: bold; color: #ff0000; padding: 10px 15px; margin-bottom: 20px;">ryuTube</div>
+        <a href="index.html" class="nav-item active">🏠 Home</a>
+        <a href="studio.html" class="nav-item">⚙️ ryuTube Studio</a>
+        <a href="ranking.html" class="nav-item">📊 Live Ranking</a>
+    </div>
+
+    <div class="content">
+        <div class="header-tags">
+            <select id="lang-picker" onchange="changeLang(this.value)"></select>
+        </div>
+        <div class="video-grid" id="video-grid"></div>
+    </div>
+
+    <script>
+        let currentLang = 'en'; // 初期言語を英語に設定
+        const i18n = {
+            en: { home: "Home", studio: "Studio", ranking: "Live", views: "views" },
+            ja: { home: "ホーム", studio: "スタジオ", ranking: "ランキング", views: "回視聴" }
+        };
+
+        function init() {
+            const picker = document.getElementById('lang-picker');
+            Object.keys(i18n).forEach(l => {
+                picker.innerHTML += `<option value="${l}" ${l === currentLang ? 'selected' : ''}>${l.toUpperCase()}</option>`;
+            });
+            renderVideos();
+            // リアルタイム更新のために定期実行
+            setInterval(renderVideos, 5000);
+        }
+
+        // 動画詳細を表示する関数
+        function showVideoDetail(title, owner, views) {
+            alert(`【Video Details】\nTitle: ${title}\nCreator: ${owner}\nStats: ${views} ${i18n[currentLang].views}`);
+        }
+
+        function renderVideos() {
+            const grid = document.getElementById('video-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('videos_')) {
+                    const ownerId = key.replace('videos_', '');
+                    const videos = JSON.parse(localStorage.getItem(key)) || [];
+                    const profile = JSON.parse(localStorage.getItem(`profile_${ownerId}`)) || {};
+                    const stats = JSON.parse(localStorage.getItem(`ryutube_studio_data_${ownerId}`)) || {subs:0};
+                    
+                    videos.forEach(v => {
+                        // 再生回数の計算を登録者数の約5倍に調整（よりリアルな数値へ）
+                        const views = Math.floor(stats.subs * 5.2);
+                        const card = document.createElement('div');
+                        card.className = 'video-card';
+                        // クリックイベントの追加
+                        card.onclick = () => showVideoDetail(v.title, profile.name || ownerId, views);
+                        
+                        card.innerHTML = `
+                            <div class="thumbnail"><img src="${v.thumb}"></div>
+                            <div class="video-info">
+                                <img class="avatar" src="${profile.avatar || 'Default-Icon.jpg'}">
+                                <div class="details">
+                                    <h3>${v.title}</h3>
+                                    <p>${profile.name || ownerId} • ${views.toLocaleString()} ${i18n[currentLang].views}</p>
+                                </div>
+                            </div>`;
+                        grid.appendChild(card);
+                    });
+                }
+            }
+        }
+
+        function changeLang(lang) {
+            currentLang = lang;
+            renderVideos();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

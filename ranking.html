@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.7/themes/odometer-theme-minimal.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.7/odometer.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@900&display=swap');
+        body { background: #0f0f0f; color: #fff; font-family: 'Roboto Condensed'; margin: 0; padding: 20px; overflow: hidden; }
+        #header { text-align: center; font-size: 24px; color: #ff0000; margin-bottom: 20px; font-weight: bold; }
+        #board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; height: 85vh; }
+        .column { position: relative; }
+        .card { position: absolute; width: 100%; height: 75px; background: #1e1e1e; display: flex; align-items: center; padding: 0 15px; border-radius: 8px; transition: top 0.5s ease; border: 1px solid #333; box-sizing: border-box; }
+        .rank { width: 35px; font-size: 20px; color: #888; font-weight: bold; }
+        .avatar { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; background: #333; }
+        .name { font-size: 16px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+        .odometer { font-size: 22px; font-weight: bold; color: #fff; }
+    </style>
+</head>
+<body>
+    <div id="header">ryuTube Realtime Ranking</div>
+    <div id="board">
+        <div class="column" id="col-0"></div>
+        <div class="column" id="col-1"></div>
+        <div class="column" id="col-2"></div>
+        <div class="column" id="col-3"></div>
+        <div class="column" id="col-4"></div>
+    </div>
+
+    <script>
+        let odos = {};
+
+        function getUsers() {
+            let users = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('ryutube_studio_data_')) {
+                    const userId = key.replace('ryutube_studio_data_', '');
+                    const stats = JSON.parse(localStorage.getItem(key));
+                    const profile = JSON.parse(localStorage.getItem(`profile_${userId}`)) || {};
+                    users.push({
+                        id: userId,
+                        name: profile.name || userId,
+                        avatar: profile.avatar || `Default-Icon.jpg`,
+                        subs: stats.subs || 0
+                    });
+                }
+            }
+            return users.sort((a, b) => b.subs - a.subs).slice(0, 50);
+        }
+
+        function init() {
+            const users = getUsers();
+            const columns = [document.getElementById('col-0'), document.getElementById('col-1'), document.getElementById('col-2'), document.getElementById('col-3'), document.getElementById('col-4')];
+            
+            columns.forEach(c => c.innerHTML = '');
+
+            users.forEach((u, i) => {
+                const colIdx = Math.floor(i / 10);
+                const card = document.createElement('div');
+                card.id = `rank-${u.id}`;
+                card.className = 'card';
+                card.style.top = `${(i % 10) * 85}px`;
+                card.innerHTML = `
+                    <div class="rank">${i + 1}</div>
+                    <img class="avatar" src="${u.avatar}">
+                    <div>
+                        <div class="name">${u.name}</div>
+                        <div class="odometer" id="odo-${u.id}">0</div>
+                    </div>`;
+                columns[colIdx].appendChild(card);
+                
+                odos[u.id] = new Odometer({ 
+                    el: document.getElementById(`odo-${u.id}`), 
+                    value: Math.floor(u.subs), 
+                    format: '(,ddd)',
+                    theme: 'minimal'
+                });
+            });
+            update();
+        }
+
+        function update() {
+            const users = getUsers();
+            users.forEach((u, i) => {
+                const card = document.getElementById(`rank-${u.id}`);
+                if (card) {
+                    card.style.top = `${(i % 10) * 85}px`;
+                    card.querySelector('.rank').innerText = i + 1;
+                    card.querySelector('.name').innerText = u.name;
+                    
+                    const targetCol = document.getElementById(`col-${Math.floor(i / 10)}`);
+                    if (card.parentElement !== targetCol) targetCol.appendChild(card);
+                    
+                    if (odos[u.id]) odos[u.id].update(Math.floor(u.subs));
+                }
+            });
+            setTimeout(update, 5000); // 5秒ごとに更新
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

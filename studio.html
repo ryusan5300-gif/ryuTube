@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.7/themes/odometer-theme-minimal.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.7/odometer.min.js"></script>
+    <style>
+        :root { --yt-red: #ff0000; --yt-black: #0f0f0f; --yt-sidebar: #1e1e1e; --yt-text: #ffffff; }
+        body { background: var(--yt-black); color: var(--yt-text); font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 240px; background: var(--yt-sidebar); border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .main { flex-grow: 1; padding: 40px; overflow-y: auto; }
+        .card { background: var(--yt-sidebar); padding: 24px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
+        .odo-container { font-size: 64px; font-weight: bold; color: white; margin: 10px 0; }
+        .money { font-size: 24px; color: #00ff00; margin-bottom: 10px; }
+        
+        /* Modal Styles */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: var(--yt-sidebar); padding: 30px; border-radius: 12px; width: 400px; border: 1px solid #444; }
+        
+        input { background: #000; border: 1px solid #444; color: white; padding: 12px; border-radius: 4px; width: 100%; margin-bottom: 15px; box-sizing: border-box; }
+        .btn { padding: 12px 24px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        .btn-v { background: var(--yt-red); color: white; width: 100%; }
+        .btn-v:disabled { background: #555; cursor: not-allowed; }
+        .btn-close { background: #333; color: white; width: 100%; margin-top: 10px; }
+        .header-img { width: 100%; height: 150px; border-radius: 12px; object-fit: cover; background: #333; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div style="padding:20px; font-size:20px; font-weight:bold; color:red;">ryuTube Studio</div>
+        <div id="user-display" style="padding:0 20px; color:#aaa; margin-bottom: 20px;"></div>
+        <div style="padding:0 20px 10px 20px;"><button onclick="openModal('settings-modal')" class="btn" style="background:#3ea6ff; color:white; width:100%;">Channel Settings</button></div>
+        <div style="padding:0 20px 10px 20px;"><button onclick="openModal('upload-modal')" class="btn btn-v">Upload Content</button></div>
+        <div style="padding:0 20px 10px 20px;"><button onclick="location.href='index.html'" class="btn" style="background:#333; color:white; width:100%;">Home</button></div>
+        <div style="margin-top:auto; padding:20px;"><button onclick="logout()" class="btn" style="background:transparent; color:#888; border:1px solid #444; width:100%;">Logout</button></div>
+    </div>
+
+    <div class="main">
+        <div class="card">
+            <img id="display-header" class="header-img" src="">
+            <div id="channel-name-display" style="font-size: 20px; font-weight: bold; margin-bottom: 5px;"></div>
+            <div id="label-subs" style="color:#aaa;">Subscribers</div>
+            <div class="odo-container"><div id="my-odo" class="odometer">0</div></div>
+            <div class="money" id="money-display">$0</div>
+        </div>
+        <button class="btn" id="upgrade-btn" style="background:#fff; color:#000;" onclick="upgrade()">Upgrade Equipment</button>
+    </div>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h3>Channel Settings</h3>
+            <input type="text" id="set-name" placeholder="Channel Name">
+            <input type="text" id="set-avatar" placeholder="Avatar URL">
+            <input type="text" id="set-header" placeholder="Header URL">
+            <button class="btn" style="background:#3ea6ff; color:white; width:100%;" onclick="saveProfile()">Save Settings</button>
+            <button class="btn btn-close" onclick="closeModal('settings-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <h3>Upload Content</h3>
+            <input type="text" id="v-title" placeholder="Video Title">
+            <input type="text" id="v-thumb" placeholder="Thumbnail URL">
+            <button class="btn btn-v" id="upload-btn" onclick="uploadVideo()">Upload Now</button>
+            <button class="btn btn-close" onclick="closeModal('upload-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        const currentUser = localStorage.getItem('ryutube_user_session') || 'Guest';
+        const SAVE_KEY = `ryutube_studio_data_${currentUser}`;
+        let subs = 0, money = 0, rate = 5, cost = 500, canUpload = true; // 初速を少し上げました
+
+        function load() {
+            const data = JSON.parse(localStorage.getItem(SAVE_KEY)) || {subs:0, money:0, rate:5, cost:500};
+            subs = data.subs; money = data.money; rate = data.rate; cost = data.cost;
+            
+            const profile = JSON.parse(localStorage.getItem(`profile_${currentUser}`)) || {};
+            document.getElementById('set-name').value = profile.name || currentUser;
+            document.getElementById('set-avatar').value = profile.avatar || '';
+            document.getElementById('set-header').value = profile.header || '';
+            document.getElementById('display-header').src = profile.header || 'https://via.placeholder.com/800x150/1e1e1e/333';
+            document.getElementById('channel-name-display').innerText = profile.name || currentUser;
+            document.getElementById('user-display').innerText = `@${currentUser}`;
+        }
+
+        function saveData() { localStorage.setItem(SAVE_KEY, JSON.stringify({subs, money, rate, cost})); }
+        
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function saveProfile() {
+            const name = document.getElementById('set-name').value;
+            const avatar = document.getElementById('set-avatar').value || 'Default-Icon.jpg';
+            const header = document.getElementById('set-header').value;
+            localStorage.setItem(`profile_${currentUser}`, JSON.stringify({name, avatar, header}));
+            closeModal('settings-modal');
+            load();
+        }
+
+        function uploadVideo() {
+            if (!canUpload) return;
+            const title = document.getElementById('v-title').value || "New Video";
+            const thumb = document.getElementById('v-thumb').value || `https://picsum.photos/seed/${Date.now()}/300/170`;
+            
+            const vKey = `videos_${currentUser}`;
+            const videos = JSON.parse(localStorage.getItem(vKey)) || [];
+            videos.push({ title, thumb });
+            localStorage.setItem(vKey, JSON.stringify(videos));
+
+            // 動画投稿時のボーナス（登録者数100増、収益1000増にバランス変更）
+            subs += 100; money += 1000;
+            saveData();
+            closeModal('upload-modal');
+            
+            canUpload = false;
+            const btn = document.getElementById('upload-btn');
+            let cd = 3;
+            btn.disabled = true;
+            const timer = setInterval(() => {
+                btn.innerText = `Wait (${cd}s)`;
+                if (cd <= 0) { clearInterval(timer); btn.disabled = false; btn.innerText = "Upload Now"; canUpload = true; }
+                cd--;
+            }, 1000);
+        }
+
+        function upgrade() {
+            if (money >= cost) { money -= cost; rate += 10; cost *= 2; saveData(); }
+        }
+
+        function logout() { localStorage.removeItem('ryutube_user_session'); location.href = 'index.html'; }
+
+        const odo = new Odometer({ el: document.getElementById('my-odo'), value: 0, format: '(,ddd)' });
+        load();
+        
+        // 5秒ごとに更新されるように変更
+        setInterval(() => {
+            subs += rate; 
+            money += (rate * 2.5); // 収益バランスを調整
+            odo.update(Math.floor(subs));
+            document.getElementById('money-display').innerText = `Balance: $${Math.floor(money).toLocaleString()}`;
+            document.getElementById('upgrade-btn').innerText = `Invest in Equipment ($${cost.toLocaleString()})`;
+            saveData();
+        }, 5000);
+    </script>
+</body>
+</html>
